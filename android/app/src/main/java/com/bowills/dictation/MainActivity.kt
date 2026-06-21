@@ -1,9 +1,15 @@
 package com.bowills.dictation
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -14,21 +20,24 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
- * Slice 1-3 debug harness: record a turn, POST it to the backend, and show the
- * cleaned text. This proves the full audio -> ASR -> cleanup loop from a phone,
- * before the overlay + accessibility injection are built.
+ * Debug harness. The top section is the in-app record -> send -> show loop
+ * (slices 1-3); the bottom section launches the system-wide floating mic
+ * overlay (slice 4).
  */
 class MainActivity : ComponentActivity() {
 
@@ -46,7 +55,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun DictationScreen(vm: DictationViewModel = viewModel()) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val state by vm.state.collectAsStateWithLifecycle()
 
     val micPermission = rememberMicPermissionLauncher(onGranted = vm::startRecording)
@@ -103,13 +112,86 @@ private fun DictationScreen(vm: DictationViewModel = viewModel()) {
 
             else -> Unit
         }
+
+        HorizontalDivider()
+
+        OverlaySection()
     }
+}
+
+/** Slice 4: start/stop the floating mic overlay service. */
+@Composable
+private fun OverlaySection() {
+    val context = LocalContext.current
+    val notifications = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* best effort; service runs regardless */ }
+    val overlaySettings = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { /* user returns from the settings screen; they tap Start again */ }
+
+    Text("Floating mic (system-wide)", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "Shows a draggable mic over other apps. For now the cleaned text is copied " +
+            "to the clipboard (text injection comes in the next slice).",
+        style = MaterialTheme.typography.bodySmall,
+    )
+
+    Button(onClick = {
+        // 1. Overlay permission must be granted in system settings.
+        if (!Settings.canDrawOverlays(context)) {
+            Toast.makeText(
+                context,
+                "Grant \"display over other apps\", then tap Start again.",
+                Toast.LENGTH_LONG,
+            ).show()
+            overlaySettings.launch(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${context.packageName}"),
+                ),
+            )
+            return@Button
+        }
+        // 2. Mic permission.
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.RECORD_AUDIO,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(context, "Grant the mic permission, then tap Start again.", Toast.LENGTH_LONG).show()
+            // Reuse the activity-result API via a one-shot request.
+            (context as? ComponentActivity)?.let {
+                ActivityCompatRequestMic(it)
+            }
+            return@Button
+        }
+        // 3. Notifications (API 33+) — best effort, foreground service needs it visible.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        OverlayDictationService.start(context)
+    }) { Text("Start floating mic") }
+
+    OutlinedButton(onClick = { OverlayDictationService.stop(context) }) {
+        Text("Stop floating mic")
+    }
+}
+
+/** Requests RECORD_AUDIO via the platform API (used from the overlay flow). */
+private fun ActivityCompatRequestMic(activity: ComponentActivity) {
+    androidx.core.app.ActivityCompat.requestPermissions(
+        activity, arrayOf(Manifest.permission.RECORD_AUDIO), 0,
+    )
 }
 
 /** Returns a callback that requests RECORD_AUDIO and starts recording when granted. */
 @Composable
 private fun rememberMicPermissionLauncher(onGranted: () -> Unit): () -> Unit {
-    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+    val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted -> if (granted) onGranted() }
     return { launcher.launch(Manifest.permission.RECORD_AUDIO) }

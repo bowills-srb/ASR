@@ -14,8 +14,8 @@ accessibility-based text injection are built.
 | 1 | Project skeleton + config | ✅ |
 | 2 | Audio capture (`AudioRecord` → WAV) | ✅ |
 | 3 | Retrofit client + debug screen (record → send → show text) | ✅ |
-| 4 | Overlay bubble (foreground service) | ⏳ next |
-| 5 | `AccessibilityService` text injector (behind interface) | ⏳ |
+| 4 | Overlay bubble (foreground service; copies result to clipboard) | ✅ |
+| 5 | `AccessibilityService` text injector (behind interface) | ⏳ next |
 | 6 | Consent / disclosure onboarding | ⏳ |
 
 ## Build & run
@@ -45,8 +45,10 @@ host to `res/xml/network_security_config.xml` (or serve the backend over HTTPS).
 ```
 app/src/main/java/com/bowills/dictation/
 ├── Config.kt                  backend URL + audio constants
-├── MainActivity.kt            Compose debug screen + mic permission
-├── DictationViewModel.kt      record → send state machine
+├── MainActivity.kt            Compose debug screen + overlay launcher
+├── DictationViewModel.kt      record → send state machine (debug screen)
+├── DictationEngine.kt         shared record → send pipeline
+├── OverlayDictationService.kt floating mic; foreground service, clipboard sink
 ├── audio/
 │   ├── AudioRecorder.kt       AudioRecord 16kHz mono PCM-16 capture
 │   └── WavWriter.kt           PCM → WAV container
