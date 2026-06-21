@@ -1,7 +1,6 @@
 """Endpoint + service tests using fake adapters (no network, no API keys)."""
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.adapters.asr.base import ASRError
