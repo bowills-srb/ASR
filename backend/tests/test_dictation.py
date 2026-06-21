@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from app.adapters.asr.base import ASRError
+from app.adapters.llm.base import CleanupError
 from app.main import app, get_service
 from app.services.dictation import DictationService
 
@@ -25,7 +26,17 @@ class FakeCleanup:
     model = "fake-cleanup"
 
     async def clean(self, transcript: str) -> str:
+        # Mirror the real adapter's empty-guard so empty transcripts stay empty.
+        if not transcript.strip():
+            return ""
         return transcript.replace("um ", "").strip().capitalize()
+
+
+class FailingCleanup:
+    model = "fake-cleanup"
+
+    async def clean(self, transcript: str) -> str:
+        raise CleanupError("llm timeout")
 
 
 def _client(service: DictationService) -> TestClient:
@@ -61,6 +72,24 @@ def test_asr_error_is_502() -> None:
     resp = client.post("/v1/dictation", content=b"\x00")
     assert resp.status_code == 502
     assert "ASR failed" in resp.json()["detail"]
+
+
+def test_cleanup_error_is_502() -> None:
+    # LLM timeout/error surfaces as a clean 502, not a hang or 500.
+    client = _client(DictationService(FakeASR("hello"), FailingCleanup()))
+    resp = client.post("/v1/dictation", content=b"\x00")
+    assert resp.status_code == 502
+    assert "Cleanup failed" in resp.json()["detail"]
+
+
+def test_empty_transcript_returns_empty_text() -> None:
+    # ASR heard nothing -> 200 with empty text (graceful, no crash).
+    client = _client(DictationService(FakeASR(""), FakeCleanup()))
+    resp = client.post("/v1/dictation", content=b"\x00")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["text"] == ""
+    assert body["raw_transcript"] == ""
 
 
 def test_healthz() -> None:
