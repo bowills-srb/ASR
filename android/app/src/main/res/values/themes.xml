@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Activity hosts Compose; this base theme just needs no action bar. -->
+    <style name="Theme.VoiceText" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Env / secrets
+.env
+*.local
+
+# Audio scratch
+*.wav
+*.flac
+*.m4a
+*.ogg
+*.opus
+!**/sample.*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
