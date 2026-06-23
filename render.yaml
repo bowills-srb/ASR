@@ -1,0 +1,22 @@
+# Render blueprint for the dictation backend.
+# Create the service from this file (Render dashboard ▸ New ▸ Blueprint), then
+# set the two secret keys manually under the service's Environment tab.
+services:
+  - type: web
+    name: voicetext-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      # Pin Python so Render doesn't drift to an unexpected version.
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Secrets — set the real values in the Render dashboard, never in git.
+      # sync: false keeps them out of the blueprint and marks them as managed secrets.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false

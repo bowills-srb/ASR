@@ -18,27 +18,25 @@ accessibility-based text injection are built.
 | 5 | `AccessibilityService` text injector (behind interface) | ⏳ next |
 | 6 | Consent / disclosure onboarding | ⏳ |
 
-## Build & run
+## Build & install (no local machine needed)
 
-This module wasn't compiled in CI (no Android SDK in the build env) — open it in
-**Android Studio** (Ladybug or newer) to build:
+The APK is built in the cloud by GitHub Actions (`.github/workflows/android.yml`)
+on every push that touches `android/**`. To get it on your phone:
 
-1. `File ▸ Open` → select the `android/` directory.
-2. Let Gradle sync. If prompted, accept the suggested AGP/Gradle versions.
-3. The Gradle wrapper JAR/scripts aren't committed — Android Studio generates
-   them on first sync. (CLI alternative: `gradle wrapper` in `android/`.)
-4. Run on an **emulator** (the default backend URL `http://10.0.2.2:8000`
-   targets the emulator's host-localhost alias).
+1. Set `BACKEND_BASE_URL` in `Config.kt` to your live Render URL (see repo root
+   `render.yaml`) and push.
+2. Wait for the **Android APK** workflow to go green (Actions tab).
+3. Open the **Releases** page → **VoiceText debug APK (latest)** → download
+   `app-debug.apk` directly on your phone.
+4. Tap the downloaded file to install. You'll be prompted to allow
+   "install unknown apps" for your browser/GitHub app the first time.
+5. Launch, tap **Start recording**, grant the mic permission, speak, tap
+   **Stop & transcribe**.
 
-Start the backend first (`uvicorn app.main:app --reload` in `../backend`), then
-launch the app, tap **Start recording**, grant the mic permission, speak, and
-tap **Stop & transcribe**.
+The build is a **debug** APK (debug-signed), which is fine for sideloading.
 
-### Physical device
-
-Change `BACKEND_BASE_URL` in `app/src/main/java/com/bowills/dictation/Config.kt`
-to your dev machine's LAN IP (e.g. `http://192.168.1.20:8000/`), and add that
-host to `res/xml/network_security_config.xml` (or serve the backend over HTTPS).
+> Android Studio still works if you ever have a desktop — `File ▸ Open` the
+> `android/` directory, let Gradle sync (it generates the wrapper), and run.
 
 ## Layout
 
